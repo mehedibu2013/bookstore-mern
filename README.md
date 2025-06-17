@@ -18,7 +18,7 @@ The application allows users to perform CRUD (Create, Read, Update, Delete) oper
 - **Node.js**: JavaScript runtime environment.
 - **Express.js**: Web framework for Node.js.
 - **MongoDB**: NoSQL database for storing book information.
-- **Mongoose**: ODM library for MongoDB and Node.js.
+- **Mongoose**: ORM library for MongoDB and Node.js.
 - **CORS**: Middleware for enabling Cross-Origin Resource Sharing.
 
 ### Frontend
