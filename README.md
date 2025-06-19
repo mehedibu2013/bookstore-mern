@@ -54,6 +54,8 @@ The application allows users to perform CRUD (Create, Read, Update, Delete) oper
     └── package.json          # Frontend dependencies and scripts
 ```
 
+## Architecture
+
 ![Project Structure](images/project-architecture.png)
 
 ## Getting Started
