@@ -51,7 +51,7 @@ pipeline {
 
         stage('OWASP FS SCAN') {
             steps {
-                bat "\"F:\\tools\\dependency-check-9.0.9-release\\dependency-check\\bin\\dependency-check.bat\" --project \"bookstore-mern\" --scan . --format HTML --out odc-report --nvdApiKey c17093ef-afe8-45bc-a645-d24125a13ca9" "
+                bat "\"F:\\tools\\dependency-check-9.0.9-release\\dependency-check\\bin\\dependency-check.bat\" --project \"bookstore-mern\" --scan . --format HTML --out odc-report --nvdApiKey c17093ef-afe8-45bc-a645-d24125a13ca9"
                 archiveArtifacts artifacts: 'odc-report/dependency-check-report.html', onlyIfSuccessful: true
             }
         }
