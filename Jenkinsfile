@@ -1,23 +1,28 @@
 pipeline {
     agent any
+
     tools {
         jdk 'jdk'
         nodejs 'node'
     }
+
     environment {
         SONAR_SCANNER_HOME = "${env.SONAR_SCANNER_HOME}"
     }
+
     stages {
         stage('Clean Workspace') {
             steps {
                 cleanWs()
             }
         }
+
         stage('Checkout from Git') {
             steps {
                 git branch: 'main', url: 'https://github.com/mehedibu2013/bookstore-mern.git'
             }
         }
+
         stage('SonarQube Analysis') {
             steps {
                 dir('backend') {
@@ -32,6 +37,7 @@ pipeline {
                 }
             }
         }
+
         stage('Install Dependencies') {
             steps {
                 dir('backend') {
@@ -42,17 +48,20 @@ pipeline {
                 }
             }
         }
+
         stage('OWASP FS SCAN') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit --nvdApiKey d7e8c629-7da9-4f96-8a4a-a45fd3f213ba', odcInstallation: 'DC'
-                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+                bat "\"F:\\tools\\dependency-check-9.0.9-release\\dependency-check\\bin\\dependency-check.bat\" --project \"bookstore-mern\" --scan . --format HTML --out odc-report"
+                archiveArtifacts artifacts: 'odc-report/dependency-check-report.html', onlyIfSuccessful: true
             }
         }
+
         stage('TRIVY FS SCAN') {
             steps {
                 bat "trivy fs . > trivyfs.txt"
             }
         }
+
         stage('Docker Build & Push') {
             steps {
                 script {
@@ -71,12 +80,15 @@ pipeline {
                 }
             }
         }
+
         stage('TRIVY Image Scan') {
             steps {
                 bat "trivy image mehedibu2013/bookstore-frontend:latest > trivyimage-frontend.txt"
                 bat "trivy image mehedibu2013/bookstore-backend:latest > trivyimage-backend.txt"
             }
         }
+
+
         stage('Deploy to Kind') {
             steps {
                 script {
@@ -87,6 +99,7 @@ pipeline {
             }
         }
     }
+
     post {
         always {
             echo "Pipeline completed with status: ${currentBuild.currentResult}"
