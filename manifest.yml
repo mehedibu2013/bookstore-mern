@@ -17,6 +17,7 @@ spec:
       containers:
         - name: bookstore-frontend-container
           image: mehedibu2013/bookstore-frontend:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5173
 ---
@@ -39,6 +40,7 @@ spec:
       containers:
         - name: bookstore-backend-container
           image: mehedibu2013/bookstore-backend:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5555
           env:
@@ -58,7 +60,7 @@ spec:
   ports:
     - port: 80
       targetPort: 5173
-      nodePort: 51731
+      nodePort: 31080  # ✅ valid NodePort range
 ---
 apiVersion: v1
 kind: Service
@@ -71,4 +73,4 @@ spec:
   ports:
     - port: 5555
       targetPort: 5555
-      nodePort: 30002
+      nodePort: 30055  # ✅ valid NodePort range
