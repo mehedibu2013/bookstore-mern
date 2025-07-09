@@ -8,9 +8,12 @@ pipeline {
 
     environment {
         SONAR_SCANNER_HOME = "${env.SONAR_SCANNER_HOME}"
+        SONAR_TOKEN = credentials('sonar-token')
+        NVD_API_KEY = credentials('nvd-api-key')
     }
 
     stages {
+
         stage('Clean Workspace') {
             steps {
                 cleanWs()
@@ -27,12 +30,12 @@ pipeline {
             steps {
                 dir('backend') {
                     withSonarQubeEnv('SonarQube') {
-                        bat "${SONAR_SCANNER_HOME}\\bin\\sonar-scanner -Dsonar.projectKey=bookstore-backend -Dsonar.sources=. -Dsonar.host.url=http://localhost:9000 -Dsonar.token=sqa_f1e72a5cd4af6689d9d2f0d76d9c2b415decfe8a"
+                        bat "${SONAR_SCANNER_HOME}\\bin\\sonar-scanner -Dsonar.projectKey=bookstore-backend -Dsonar.sources=. -Dsonar.host.url=http://localhost:9000 -Dsonar.token=${SONAR_TOKEN}"
                     }
                 }
                 dir('frontend') {
                     withSonarQubeEnv('SonarQube') {
-                        bat "${SONAR_SCANNER_HOME}\\bin\\sonar-scanner -Dsonar.projectKey=bookstore-frontend -Dsonar.sources=src -Dsonar.host.url=http://localhost:9000 -Dsonar.token=sqa_f1e72a5cd4af6689d9d2f0d76d9c2b415decfe8a"
+                        bat "${SONAR_SCANNER_HOME}\\bin\\sonar-scanner -Dsonar.projectKey=bookstore-frontend -Dsonar.sources=src -Dsonar.host.url=http://localhost:9000 -Dsonar.token=${SONAR_TOKEN}"
                     }
                 }
             }
@@ -41,24 +44,37 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 dir('backend') {
-                    bat "npm install"
+                    bat 'npm install'
                 }
                 dir('frontend') {
-                    bat "npm install"
+                    bat 'npm install'
                 }
             }
         }
 
-        stage('OWASP FS SCAN') {
+        stage('OWASP FS SCAN (Docker)') {
             steps {
-                bat "\"F:\\tools\\dependency-check-9.0.9-release\\dependency-check\\bin\\dependency-check.bat\" --project \"bookstore-mern\" --scan . --format HTML --out odc-report --nvdApiKey c17093ef-afe8-45bc-a645-d24125a13ca9"
+                script {
+                    bat """
+                    docker run --rm ^
+                        -v "%cd%:/src" ^
+                        owasp/dependency-check:latest ^
+                        --project "bookstore-mern" ^
+                        --scan /src ^
+                        --format HTML ^
+                        --out /src/odc-report ^
+                        --nvdApiKey ${NVD_API_KEY} ^
+                        --nvdApiDelay 2000
+                    """
+                }
                 archiveArtifacts artifacts: 'odc-report/dependency-check-report.html', onlyIfSuccessful: true
             }
         }
 
         stage('TRIVY FS SCAN') {
             steps {
-                bat "trivy fs . > trivyfs.txt"
+                bat 'trivy fs . > trivy-fs.txt'
+                archiveArtifacts artifacts: 'trivy-fs.txt', onlyIfSuccessful: true
             }
         }
 
@@ -67,14 +83,14 @@ pipeline {
                 script {
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
                         dir('frontend') {
-                            bat "docker build -t bookstore-frontend -f frontend/Dockerfile ."
-                            bat "docker tag bookstore-frontend mehedibu2013/bookstore-frontend:latest"
-                            bat "docker push mehedibu2013/bookstore-frontend:latest"
+                            bat 'docker build -t bookstore-frontend -f Dockerfile .'
+                            bat 'docker tag bookstore-frontend mehedibu2013/bookstore-frontend:latest'
+                            bat 'docker push mehedibu2013/bookstore-frontend:latest'
                         }
                         dir('backend') {
-                            bat "docker build -t bookstore-backend -f backend/Dockerfile ."
-                            bat "docker tag bookstore-backend mehedibu2013/bookstore-backend:latest"
-                            bat "docker push mehedibu2013/bookstore-backend:latest"
+                            bat 'docker build -t bookstore-backend -f Dockerfile .'
+                            bat 'docker tag bookstore-backend mehedibu2013/bookstore-backend:latest'
+                            bat 'docker push mehedibu2013/bookstore-backend:latest'
                         }
                     }
                 }
@@ -83,19 +99,17 @@ pipeline {
 
         stage('TRIVY Image Scan') {
             steps {
-                bat "trivy image mehedibu2013/bookstore-frontend:latest > trivyimage-frontend.txt"
-                bat "trivy image mehedibu2013/bookstore-backend:latest > trivyimage-backend.txt"
+                bat 'trivy image mehedibu2013/bookstore-frontend:latest > trivy-image-frontend.txt'
+                bat 'trivy image mehedibu2013/bookstore-backend:latest > trivy-image-backend.txt'
+                archiveArtifacts artifacts: 'trivy-image-*.txt', onlyIfSuccessful: true
             }
         }
 
-
         stage('Deploy to Kind') {
             steps {
-                script {
-                    bat "kind load docker-image mehedibu2013/bookstore-frontend:latest --name bookstore-cluster"
-                    bat "kind load docker-image mehedibu2013/bookstore-backend:latest --name bookstore-cluster"
-                    bat "kubectl apply -f manifest.yml"
-                }
+                bat 'kind load docker-image mehedibu2013/bookstore-frontend:latest --name bookstore-cluster'
+                bat 'kind load docker-image mehedibu2013/bookstore-backend:latest --name bookstore-cluster'
+                bat 'kubectl apply -f manifest.yml'
             }
         }
     }
@@ -103,6 +117,13 @@ pipeline {
     post {
         always {
             echo "Pipeline completed with status: ${currentBuild.currentResult}"
+            archiveArtifacts artifacts: '**/*.txt, **/*.html', onlyIfSuccessful: true
+        }
+        failure {
+            echo "Build failed ❌"
+        }
+        success {
+            echo "Build succeeded ✅"
         }
     }
 }
